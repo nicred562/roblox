@@ -218,6 +218,38 @@ local function startStore(saveKey)
 				if f then
 					Fixtures.fillSlot(f, arg[2], arg[3], arg[4])
 				end
+			elseif command == "fillall" then
+				-- Llena todos los niveles de todos los muebles (gratis). Los niveles con etiqueta se completan
+				-- con su producto; los vacíos reciben productos desbloqueados que entren en ese mueble.
+				local unlocked = State.unlockedProducts()
+				local nextIndex = {}
+				local added = 0
+				for _, f in Fixtures.list do
+					for i, slot in f.slots do
+						local productId = slot.productId
+						if not productId then
+							local options = {}
+							for _, prod in unlocked do
+								if Fixtures.accepts(f, prod.id) then
+									table.insert(options, prod.id)
+								end
+							end
+							if #options > 0 then
+								local key = f.def.storage
+								nextIndex[key] = (nextIndex[key] or 0) % #options + 1
+								productId = options[nextIndex[key]]
+							end
+						end
+						if productId then
+							local missing = Fixtures.capacity(f, i, productId) - slot.stock
+							if missing > 0 then
+								Fixtures.fillSlot(f, i, productId, missing)
+								added += missing
+							end
+						end
+					end
+				end
+				State.notify(nil, "📦 Estantes llenos (+" .. added .. " productos)", "good")
 			end
 			local lines = { string.format("fase=%s hora=%s dinero=%s dia=%d nivel=%d xp=%d fp=%d satisf=%d", State.phase, Config.formatClock(State.clock), Config.formatMoney(State.data.money), State.data.day, State.data.level, State.data.xp, State.data.fp, State.data.satisfaction) }
 			for _, c in Customers.active do
